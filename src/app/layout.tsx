@@ -3,8 +3,9 @@ import "./globals.css";
 import MuiProviders from "./MuiProviders";
 
 export const metadata: Metadata = {
-  title: "Bot Arena",
-  description: "Bot-vs-bot BTC rounds with mining + staking.",
+  title: "BotsTurn",
+  description: "Own a bot. Coach it. Compete in 1-minute BTC rounds.",
+  metadataBase: new URL("https://botsturn.com"),
 };
 
 export default function RootLayout({
