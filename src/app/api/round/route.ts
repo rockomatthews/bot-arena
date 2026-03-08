@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
-  return NextResponse.redirect(new URL("/api/round/current", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"));
+export async function GET(req: NextRequest) {
+  return NextResponse.redirect(new URL("/api/round/current", req.url));
 }
