@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import styles from "../page.module.css";
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Container,
+  Divider,
+  Stack,
+  Typography,
+} from "@mui/material";
+import Grid from "@mui/material/Grid2";
 
 type RoundState = "BETTING" | "LOCKED" | "SETTLED";
 
@@ -34,7 +45,6 @@ export default function GameHome() {
 
     async function refresh() {
       try {
-        // Keep the game moving in the browser while we don't have a cron yet.
         await fetch("/api/round/tick", { cache: "no-store" });
         const res = await fetch("/api/round/current", { cache: "no-store" });
         const json = await res.json();
@@ -67,132 +77,158 @@ export default function GameHome() {
     return s;
   }, [round]);
 
-  const roundLabel = round ? `Round #${round.id}` : "";
+  const openPx = round?.open_price ? Number(round.open_price) : null;
+  const closePx = round?.close_price ? Number(round.close_price) : null;
 
   return (
-    <div className={styles.page}>
-      <main className={styles.main} style={{ width: "100%", maxWidth: 980 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 14, width: "100%" }}>
-          <div>
-            <div style={{ opacity: 0.8, fontSize: 12 }}>BOT ARENA</div>
-            <div style={{ fontSize: 28, fontWeight: 900, marginTop: 6 }}>BTC Up / Down</div>
-            <div style={{ opacity: 0.85, marginTop: 6 }}>{roundLabel}</div>
-          </div>
+    <Box sx={{ py: 4 }}>
+      <Container maxWidth="lg">
+        <Stack spacing={2}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
+            <Box>
+              <Typography variant="overline" sx={{ opacity: 0.7 }}>
+                ARENA MODE
+              </Typography>
+              <Typography variant="h3" sx={{ fontWeight: 900, lineHeight: 1.05 }}>
+                BTC Up / Down
+              </Typography>
+              <Typography sx={{ opacity: 0.8, mt: 0.5 }}>
+                Own a bot. Coach it. It competes in 1-minute rounds.
+              </Typography>
+            </Box>
 
-          <div
-            style={{
-              minWidth: 240,
-              border: "1px solid rgba(255,255,255,0.12)",
-              borderRadius: 14,
-              padding: 12,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <div style={{ opacity: 0.8, fontSize: 12 }}>STATE</div>
-              <div style={{ fontWeight: 800 }}>{round?.state || "—"}</div>
-            </div>
-            <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between" }}>
-              <div style={{ opacity: 0.8, fontSize: 12 }}>
-                {round?.state === "BETTING" ? "LOCKS IN" : round?.state === "LOCKED" ? "SETTLES IN" : ""}
-              </div>
-              <div style={{ fontWeight: 900, fontSize: 18 }}>{countdown !== null ? `${countdown}s` : "—"}</div>
-            </div>
-            <div style={{ marginTop: 10, opacity: 0.85, fontSize: 12 }}>
-              Open: {round?.open_price ? `$${formatMoney(Number(round.open_price))}` : "—"} · Close: {round?.close_price ? `$${formatMoney(Number(round.close_price))}` : "—"}
-            </div>
-          </div>
-        </div>
+            <Box sx={{ flex: 1 }} />
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 12,
-            width: "100%",
-            marginTop: 16,
-          }}
-        >
-          <div
-            style={{
-              border: "1px solid rgba(255,255,255,0.10)",
-              borderRadius: 14,
-              padding: 14,
-            }}
-          >
-            <div style={{ fontWeight: 900 }}>Your Bot</div>
-            <div style={{ marginTop: 8, opacity: 0.85, lineHeight: 1.45 }}>
-              Connect a wallet, create a bot, then your bot competes in the arena.
-            </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-              <button className={styles.secondary} onClick={() => alert("Next: wallet connect") }>
-                Connect wallet
-              </button>
-              <button className={styles.secondary} onClick={() => alert("Next: create/select bot") }>
-                Create bot
-              </button>
-            </div>
-            <div style={{ marginTop: 10, opacity: 0.7, fontSize: 12 }}>
-              Autopilot is coming later (opt-in + risk caps).
-            </div>
-          </div>
+            <Card variant="outlined" sx={{ minWidth: 320 }}>
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="subtitle2" sx={{ opacity: 0.7 }}>
+                    {round ? `Round #${round.id}` : "Round"}
+                  </Typography>
+                  <Chip
+                    label={round?.state || "—"}
+                    color={
+                      round?.state === "BETTING"
+                        ? "success"
+                        : round?.state === "LOCKED"
+                          ? "warning"
+                          : "default"
+                    }
+                    size="small"
+                  />
+                </Stack>
 
-          <div
-            style={{
-              border: "1px solid rgba(255,255,255,0.10)",
-              borderRadius: 14,
-              padding: 14,
-            }}
-          >
-            <div style={{ fontWeight: 900 }}>Arena Actions</div>
-            <div style={{ marginTop: 8, opacity: 0.85, lineHeight: 1.45 }}>
-              During BETTING, your bot can place one pick: UP or DOWN (1 USDC).
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
-              <button
-                className={styles.primary}
-                disabled={!round || round.state !== "BETTING"}
-                onClick={() => alert("Next: submit bot pick UP")}
-                style={{ padding: 14, fontSize: 16, fontWeight: 900 }}
-              >
-                BOT BET UP
-              </button>
-              <button
-                className={styles.primary}
-                disabled={!round || round.state !== "BETTING"}
-                onClick={() => alert("Next: submit bot pick DOWN")}
-                style={{ padding: 14, fontSize: 16, fontWeight: 900 }}
-              >
-                BOT BET DOWN
-              </button>
-            </div>
-            <div style={{ marginTop: 10, opacity: 0.7, fontSize: 12 }}>
-              For now this is simulated. We’ll turn on real USDC only when you approve.
-            </div>
-          </div>
-        </div>
+                <Typography sx={{ mt: 1, fontSize: 34, fontWeight: 900 }}>
+                  {countdown !== null ? `${countdown}s` : "—"}
+                </Typography>
 
-        <div
-          style={{
-            width: "100%",
-            marginTop: 14,
-            border: "1px solid rgba(255,255,255,0.10)",
-            borderRadius: 14,
-            padding: 14,
-            opacity: 0.9,
-          }}
-        >
-          <div style={{ fontWeight: 900 }}>Mining + Staking (coming next)</div>
-          <div style={{ marginTop: 8, lineHeight: 1.45 }}>
-            • Mine <b>Ore</b> by playing rounds (wins mine more)
-            <br />• Refine Ore over time (instant claim = penalty)
-            <br />• Stake Ore to unlock higher tiers + cosmetics
-          </div>
-        </div>
+                <Typography sx={{ opacity: 0.8, mt: 0.5 }}>
+                  Open: {openPx ? `$${formatMoney(openPx)}` : "—"} · Close: {closePx ? `$${formatMoney(closePx)}` : "—"}
+                </Typography>
 
-        {status ? (
-          <div style={{ width: "100%", marginTop: 12, opacity: 0.8, fontSize: 12 }}>Error: {status}</div>
-        ) : null}
-      </main>
-    </div>
+                {round?.result ? (
+                  <Typography sx={{ opacity: 0.9, mt: 1 }}>
+                    Result: <b>{round.result}</b>
+                  </Typography>
+                ) : null}
+              </CardContent>
+            </Card>
+          </Stack>
+
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                    Your Bot
+                  </Typography>
+                  <Typography sx={{ opacity: 0.8, mt: 1 }}>
+                    Create a bot tied to your wallet. Your bot places picks each round.
+                  </Typography>
+
+                  <Divider sx={{ my: 2 }} />
+
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <Button variant="outlined" onClick={() => alert("Next: create bot")}> 
+                      Create bot
+                    </Button>
+                    <Button variant="outlined" onClick={() => alert("Next: select bot")}> 
+                      Select bot
+                    </Button>
+                  </Stack>
+
+                  <Typography sx={{ opacity: 0.7, mt: 2, fontSize: 13 }}>
+                    Autopilot comes later (opt-in + risk caps). For now, you coach the bot.
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                    Arena Actions
+                  </Typography>
+                  <Typography sx={{ opacity: 0.8, mt: 1 }}>
+                    During <b>BETTING</b>, your bot can place one pick (1 USDC simulated for now).
+                  </Typography>
+
+                  <Grid container spacing={1.5} sx={{ mt: 1 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Button
+                        fullWidth
+                        size="large"
+                        variant="contained"
+                        disabled={!round || round.state !== "BETTING"}
+                        onClick={() => alert("Next: submit bot pick UP")}
+                        sx={{ fontWeight: 900, py: 1.6 }}
+                      >
+                        BOT BET UP
+                      </Button>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Button
+                        fullWidth
+                        size="large"
+                        variant="contained"
+                        disabled={!round || round.state !== "BETTING"}
+                        onClick={() => alert("Next: submit bot pick DOWN")}
+                        sx={{ fontWeight: 900, py: 1.6 }}
+                      >
+                        BOT BET DOWN
+                      </Button>
+                    </Grid>
+                  </Grid>
+
+                  <Typography sx={{ opacity: 0.7, mt: 2, fontSize: 13 }}>
+                    We only turn on real USDC when you approve. Nothing spends money silently.
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid size={{ xs: 12 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                    Mining + Staking (coming next)
+                  </Typography>
+                  <Typography sx={{ opacity: 0.85, mt: 1, lineHeight: 1.6 }}>
+                    • Mine <b>Ore</b> by playing rounds (wins mine more)
+                    <br />• Refine Ore over time (instant claim = penalty)
+                    <br />• Stake Ore to unlock higher tiers + cosmetics
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+
+          {status ? (
+            <Typography sx={{ opacity: 0.8, fontSize: 12 }}>Error: {status}</Typography>
+          ) : null}
+        </Stack>
+      </Container>
+    </Box>
   );
 }
