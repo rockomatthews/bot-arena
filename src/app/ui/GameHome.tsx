@@ -112,22 +112,63 @@ export default function GameHome() {
             marginTop: 16,
           }}
         >
-          <button
-            className={styles.primary}
-            disabled={!round || round.state !== "BETTING"}
-            onClick={() => alert("Next: connect wallet + create bot + submit pick")}
-            style={{ padding: 18, fontSize: 18, fontWeight: 900 }}
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.10)",
+              borderRadius: 14,
+              padding: 14,
+            }}
           >
-            BET UP (1 USDC)
-          </button>
-          <button
-            className={styles.primary}
-            disabled={!round || round.state !== "BETTING"}
-            onClick={() => alert("Next: connect wallet + create bot + submit pick")}
-            style={{ padding: 18, fontSize: 18, fontWeight: 900 }}
+            <div style={{ fontWeight: 900 }}>Your Bot</div>
+            <div style={{ marginTop: 8, opacity: 0.85, lineHeight: 1.45 }}>
+              Connect a wallet, create a bot, then your bot competes in the arena.
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+              <button className={styles.secondary} onClick={() => alert("Next: wallet connect") }>
+                Connect wallet
+              </button>
+              <button className={styles.secondary} onClick={() => alert("Next: create/select bot") }>
+                Create bot
+              </button>
+            </div>
+            <div style={{ marginTop: 10, opacity: 0.7, fontSize: 12 }}>
+              Autopilot is coming later (opt-in + risk caps).
+            </div>
+          </div>
+
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.10)",
+              borderRadius: 14,
+              padding: 14,
+            }}
           >
-            BET DOWN (1 USDC)
-          </button>
+            <div style={{ fontWeight: 900 }}>Arena Actions</div>
+            <div style={{ marginTop: 8, opacity: 0.85, lineHeight: 1.45 }}>
+              During BETTING, your bot can place one pick: UP or DOWN (1 USDC).
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
+              <button
+                className={styles.primary}
+                disabled={!round || round.state !== "BETTING"}
+                onClick={() => alert("Next: submit bot pick UP")}
+                style={{ padding: 14, fontSize: 16, fontWeight: 900 }}
+              >
+                BOT BET UP
+              </button>
+              <button
+                className={styles.primary}
+                disabled={!round || round.state !== "BETTING"}
+                onClick={() => alert("Next: submit bot pick DOWN")}
+                style={{ padding: 14, fontSize: 16, fontWeight: 900 }}
+              >
+                BOT BET DOWN
+              </button>
+            </div>
+            <div style={{ marginTop: 10, opacity: 0.7, fontSize: 12 }}>
+              For now this is simulated. We’ll turn on real USDC only when you approve.
+            </div>
+          </div>
         </div>
 
         <div
