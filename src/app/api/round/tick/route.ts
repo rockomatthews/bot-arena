@@ -18,7 +18,7 @@ function roundTimes(now: Date) {
   return { startTs, bettingEndsTs, endTs };
 }
 
-export async function POST() {
+async function tick() {
   const sb = supabaseServerAdmin();
 
   // Determine the current round boundaries.
@@ -82,4 +82,13 @@ export async function POST() {
   }
 
   return NextResponse.json({ ok: true, round });
+}
+
+export async function POST() {
+  return tick();
+}
+
+// Convenience for browser testing
+export async function GET() {
+  return tick();
 }
