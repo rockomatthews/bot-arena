@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { AppBar, Box, Toolbar } from "@mui/material";
+import { AppBar, Box, IconButton, Tooltip, Toolbar } from "@mui/material";
 
 export default function TopBar() {
   return (
@@ -30,6 +30,38 @@ export default function TopBar() {
         </Box>
 
         <Box sx={{ flex: 1 }} />
+
+        {/* Placeholder icons for upcoming features */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Tooltip title="Marketplace (coming soon)">
+            <span>
+              <IconButton
+                disabled
+                size="small"
+                sx={{
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  borderRadius: 2,
+                }}
+              >
+                <Image src="/botsTurnMarketplaceIcon.png" alt="Marketplace" width={22} height={22} />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Scripting Playground (coming soon)">
+            <span>
+              <IconButton
+                disabled
+                size="small"
+                sx={{
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  borderRadius: 2,
+                }}
+              >
+                <Image src="/botsTurnScriptingIcon.png" alt="Scripting" width={22} height={22} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
 
         <ConnectButton showBalance={false} chainStatus="icon" accountStatus="address" />
       </Toolbar>
