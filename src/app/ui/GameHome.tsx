@@ -77,6 +77,15 @@ export default function GameHome() {
   const [balances, setBalances] = useState<Record<string, Balance>>({});
   const [selectedBotId, setSelectedBotId] = useState<string>("");
   const [pick, setPick] = useState<Pick | null>(null);
+  const [lastOutcome, setLastOutcome] = useState<
+    | null
+    | {
+        roundId: number;
+        result: string;
+        picked: "UP" | "DOWN";
+        outcome: "WIN" | "LOSS" | "DRAW";
+      }
+  >(null);
 
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const selectedBot = useMemo(
@@ -95,11 +104,46 @@ export default function GameHome() {
 
     async function refreshRound() {
       try {
-        await fetch("/api/round/tick", { cache: "no-store" });
+        const tickRes = await fetch("/api/round/tick", { cache: "no-store" });
+        const tickJson = await tickRes.json().catch(() => null);
+
         const res = await fetch("/api/round/current", { cache: "no-store" });
         const json = await res.json();
         if (!res.ok) throw new Error(json?.error || "Failed to load round");
-        if (!cancelled) setRound(json.round);
+
+        if (!cancelled) {
+          setRound(json.round);
+
+          // If we just settled, refresh balances/pick and compute outcome
+          const r: Round | null = json.round;
+          if (r && r.state === "SETTLED") {
+            await refreshSelectedPick(r, selectedBot);
+            await refreshLeaderboard();
+
+            if (selectedBot && address) {
+              const balRes = await fetch("/api/bot/balances", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ botIds: bots.map((b) => b.id) }),
+              });
+              const balJson = await balRes.json();
+              if (balRes.ok) {
+                const map: Record<string, Balance> = {};
+                for (const b of balJson.balances || []) map[b.bot_id] = b;
+                setBalances(map);
+              }
+            }
+
+            const settledResult = (tickJson && tickJson.round && tickJson.round.result) || r.result;
+            if (settledResult && pick) {
+              let outcome: "WIN" | "LOSS" | "DRAW" = "DRAW";
+              if (settledResult === "DRAW") outcome = "DRAW";
+              else if (pick.side === settledResult) outcome = "WIN";
+              else outcome = "LOSS";
+              setLastOutcome({ roundId: r.id, result: settledResult, picked: pick.side, outcome });
+            }
+          }
+        }
       } catch (e: any) {
         if (!cancelled) setStatus(e?.message || "Error");
       }
@@ -268,6 +312,15 @@ export default function GameHome() {
     refreshLeaderboard().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round?.id, selectedBotId]);
+
+  useEffect(() => {
+    // Clear outcome when a new round starts
+    if (!round) return;
+    if (lastOutcome && lastOutcome.roundId !== round.id) {
+      setLastOutcome(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [round?.id]);
 
   return (
     <Box sx={{ py: { xs: 2, md: 4 } }}>
@@ -449,6 +502,22 @@ export default function GameHome() {
                   <Typography sx={{ opacity: 0.8, mt: 1 }}>
                     During <b>BETTING</b>, your bot can place one pick. Stake is fixed at <b>1</b> (simulated USDC) for now.
                   </Typography>
+
+                  {lastOutcome ? (
+                    <Alert
+                      severity={
+                        lastOutcome.outcome === "WIN"
+                          ? "success"
+                          : lastOutcome.outcome === "LOSS"
+                            ? "error"
+                            : "info"
+                      }
+                      sx={{ mt: 2 }}
+                    >
+                      Last round result: <b>{lastOutcome.result}</b>. Your bot picked <b>{lastOutcome.picked}</b> →{" "}
+                      <b>{lastOutcome.outcome}</b>.
+                    </Alert>
+                  ) : null}
 
                   <Grid container spacing={1.5} sx={{ mt: 1 }}>
                     <Grid size={{ xs: 12, sm: 6 }}>
