@@ -21,7 +21,7 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import CreateBotDialog from "./_CreateBotDialog";
 import { leaderboardColumns } from "./_leaderboard";
 import Grid from "@mui/material/Grid";
-import { useAccount, useChainId, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useChainId, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { useTheme } from "@mui/material/styles";
 import { ARENA_ABI } from "../abi/arena";
 import { USDC_ABI } from "../abi/usdc";
@@ -73,6 +73,7 @@ type Pick = {
 export default function GameHome() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const publicClient = usePublicClient();
   const onBase = chainId === base.id;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -641,15 +642,21 @@ export default function GameHome() {
                       onClick={async () => {
                         if (!ARENA_ADDR) return;
                         try {
-                          setStatus(isApproved ? "Already approved" : "Approving USDC…");
-                          await writeContractAsync({
+                          setStatus(isApproved ? "Already approved" : "Approve tx pending in wallet…");
+                          const hash = await writeContractAsync({
                             abi: USDC_ABI,
                             address: USDC_BASE,
                             functionName: "approve",
                             args: [ARENA_ADDR, maxBetBn],
                           });
+
+                          setStatus("Waiting for confirmation…");
+                          if (publicClient && hash) {
+                            await publicClient.waitForTransactionReceipt({ hash });
+                          }
                           await refetchAllowance();
-                          setStatus("USDC approved");
+                          await refetchUsdcBal();
+                          setStatus("USDC allowance set");
                         } catch (e: any) {
                           setStatus(e?.shortMessage || e?.message || "Approve failed");
                         }
