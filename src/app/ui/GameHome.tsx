@@ -634,15 +634,32 @@ export default function GameHome() {
                     Fee: <b>{(FEE_BPS / 100).toFixed(2)}%</b> per bet · Max: <b>${MAX_BET_USDC}</b> per round
                   </Typography>
 
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
+                  {status ? (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                      {status}
+                    </Alert>
+                  ) : null}
+
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2, alignItems: { sm: "center" } }}>
                     <Button
                       variant={isApproved ? "outlined" : "contained"}
                       color={isApproved ? "success" : "primary"}
                       disabled={!ARENA_ADDR || !address || !onBase}
                       onClick={async () => {
-                        if (!ARENA_ADDR) return;
+                        if (!address) {
+                          setStatus("Connect wallet first");
+                          return;
+                        }
+                        if (!onBase) {
+                          setStatus("Switch MetaMask network to Base");
+                          return;
+                        }
+                        if (!ARENA_ADDR) {
+                          setStatus("Missing arena contract address (env)");
+                          return;
+                        }
                         try {
-                          setStatus(isApproved ? "Already approved" : "Approve tx pending in wallet…");
+                          setStatus(isApproved ? "Already approved" : "Opening MetaMask approval…");
                           const hash = await writeContractAsync({
                             abi: USDC_ABI,
                             address: USDC_BASE,
@@ -664,8 +681,8 @@ export default function GameHome() {
                     >
                       {isApproved ? "USDC approved" : "Approve USDC"}
                     </Button>
-                    <Typography sx={{ opacity: 0.7, fontSize: 12, alignSelf: "center" }}>
-                      Allowance: {isApproved ? "OK" : "not set"}
+                    <Typography sx={{ opacity: 0.7, fontSize: 12 }}>
+                      Allowance: {isApproved ? "OK" : "not set"} · chainId: {chainId}
                     </Typography>
                   </Stack>
 
