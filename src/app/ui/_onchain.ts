@@ -19,6 +19,7 @@ export const ARENA_ADDR =
 
 export const FEE_BPS = 100; // 1%
 export const MAX_BET_USDC = 25;
+export const APPROVE_CAP_USDC = 500;
 
 export const BET_CHIPS = [1, 2, 5, 10, 20, 25] as const;
 

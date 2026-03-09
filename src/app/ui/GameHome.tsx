@@ -23,9 +23,17 @@ import { leaderboardColumns } from "./_leaderboard";
 import Grid from "@mui/material/Grid";
 import { useAccount, useChainId, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { useTheme } from "@mui/material/styles";
-import { ABI as ARENA_ABI } from "../abi/arena";
+import { ABI as ARENA_ABI } from "../abi/arena_deposit";
 import { USDC_ABI } from "../abi/usdc";
-import { ARENA_ADDR, BET_CHIPS, FEE_BPS, MAX_BET_USDC, USDC_BASE, parseUsdcAmount } from "./_onchain";
+import {
+  APPROVE_CAP_USDC,
+  ARENA_ADDR,
+  BET_CHIPS,
+  FEE_BPS,
+  MAX_BET_USDC,
+  USDC_BASE,
+  parseUsdcAmount,
+} from "./_onchain";
 import { base } from "wagmi/chains";
 import { formatUnits } from "viem";
 
@@ -103,6 +111,7 @@ export default function GameHome() {
 
   const betAmountBn = useMemo(() => parseUsdcAmount(betAmount), [betAmount]);
   const maxBetBn = useMemo(() => parseUsdcAmount(String(MAX_BET_USDC)), []);
+  const approveCapBn = useMemo(() => parseUsdcAmount(String(APPROVE_CAP_USDC)), []);
   const { data: usdcBal, refetch: refetchUsdcBal } = useReadContract({
     abi: USDC_ABI,
     address: USDC_BASE,
@@ -119,10 +128,18 @@ export default function GameHome() {
     query: { enabled: !!address && !!ARENA_ADDR },
   });
 
+  const { data: arenaBal, refetch: refetchArenaBal } = useReadContract({
+    abi: ARENA_ABI,
+    address: ARENA_ADDR || undefined,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !!ARENA_ADDR },
+  });
+
   const isApproved = useMemo(() => {
     if (!allowance) return false;
-    return BigInt(allowance as any) >= maxBetBn;
-  }, [allowance, maxBetBn]);
+    return BigInt(allowance as any) >= approveCapBn;
+  }, [allowance, approveCapBn]);
 
   const usdcBalFmt = useMemo(() => {
     if (!usdcBal) return "—";
@@ -132,6 +149,15 @@ export default function GameHome() {
       return "—";
     }
   }, [usdcBal]);
+
+  const arenaBalFmt = useMemo(() => {
+    if (!arenaBal) return "—";
+    try {
+      return Number(formatUnits(arenaBal as any, 6)).toFixed(2);
+    } catch {
+      return "—";
+    }
+  }, [arenaBal]);
   const selectedBot = useMemo(
     () => bots.find((b) => b.id === selectedBotId) || null,
     [bots, selectedBotId]
@@ -555,7 +581,9 @@ export default function GameHome() {
                   </Typography>
 
                   <Alert severity={onBase ? "info" : "warning"} sx={{ mt: 2 }}>
-                    <b>Wallet USDC balance:</b> {usdcBalFmt}
+                    <b>Wallet USDC (Base):</b> {usdcBalFmt}
+                    <br />
+                    <b>BotsTurn balance:</b> {arenaBalFmt}
                     {!onBase ? (
                       <>
                         <br />Switch your wallet network to <b>Base</b> to bet.
@@ -631,7 +659,7 @@ export default function GameHome() {
                   </Stack>
 
                   <Typography sx={{ opacity: 0.75, mt: 1, fontSize: 13, lineHeight: 1.7 }}>
-                    Fee: <b>{(FEE_BPS / 100).toFixed(2)}%</b> per bet · Max: <b>${MAX_BET_USDC}</b> per round
+                    Fee: <b>{(FEE_BPS / 100).toFixed(2)}%</b> per bet · Max bet: <b>${MAX_BET_USDC}</b> per round · Max deposit: <b>${APPROVE_CAP_USDC}</b>
                   </Typography>
 
                   {status ? (
@@ -664,7 +692,7 @@ export default function GameHome() {
                             abi: USDC_ABI,
                             address: USDC_BASE,
                             functionName: "approve",
-                            args: [ARENA_ADDR, maxBetBn],
+                            args: [ARENA_ADDR, approveCapBn],
                           });
 
                           setStatus("Waiting for confirmation…");
@@ -673,6 +701,7 @@ export default function GameHome() {
                           }
                           await refetchAllowance();
                           await refetchUsdcBal();
+                          await refetchArenaBal();
                           setStatus("USDC allowance set");
                         } catch (e: any) {
                           setStatus(e?.shortMessage || e?.message || "Approve failed");
@@ -682,8 +711,70 @@ export default function GameHome() {
                       {isApproved ? "USDC approved" : "Approve USDC"}
                     </Button>
                     <Typography sx={{ opacity: 0.7, fontSize: 12 }}>
-                      Allowance: {isApproved ? "OK" : "not set"} · chainId: {chainId}
+                      Allowance: {isApproved ? "OK" : "not set"} (cap ${APPROVE_CAP_USDC}) · chainId: {chainId}
                     </Typography>
+                  </Stack>
+
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      disabled={!ARENA_ADDR || !address || !onBase || !isApproved || betAmountBn <= 0n}
+                      onClick={async () => {
+                        if (!ARENA_ADDR || !address) return;
+                        try {
+                          setStatus("Depositing…");
+                          const hash = await writeContractAsync({
+                            abi: ARENA_ABI,
+                            address: ARENA_ADDR,
+                            functionName: "deposit",
+                            args: [betAmountBn],
+                          });
+                          if (publicClient && hash) {
+                            await publicClient.waitForTransactionReceipt({ hash });
+                          }
+                          await refetchArenaBal();
+                          await refetchUsdcBal();
+                          setBetAmount("0");
+                          setStatus("Deposit complete");
+                        } catch (e: any) {
+                          setStatus(e?.shortMessage || e?.message || "Deposit failed");
+                        }
+                      }}
+                    >
+                      Deposit ${betAmount}
+                    </Button>
+                    <Button
+                      variant="text"
+                      disabled={!ARENA_ADDR || !address || !onBase}
+                      onClick={async () => {
+                        if (!ARENA_ADDR || !address) return;
+                        try {
+                          setStatus("Withdrawing…");
+                          // withdraw full balance
+                          const bal = arenaBal ? (BigInt(arenaBal as any) as any) : 0n;
+                          if (bal <= 0n) {
+                            setStatus("Nothing to withdraw");
+                            return;
+                          }
+                          const hash = await writeContractAsync({
+                            abi: ARENA_ABI,
+                            address: ARENA_ADDR,
+                            functionName: "withdraw",
+                            args: [bal],
+                          });
+                          if (publicClient && hash) {
+                            await publicClient.waitForTransactionReceipt({ hash });
+                          }
+                          await refetchArenaBal();
+                          await refetchUsdcBal();
+                          setStatus("Withdraw complete");
+                        } catch (e: any) {
+                          setStatus(e?.shortMessage || e?.message || "Withdraw failed");
+                        }
+                      }}
+                    >
+                      Withdraw
+                    </Button>
                   </Stack>
 
                   <Grid container spacing={1.5} sx={{ mt: 2 }}>
@@ -703,15 +794,19 @@ export default function GameHome() {
                             setStatus("");
                             if (betAmountBn <= 0n) throw new Error("Enter a bet amount");
                             if (betAmountBn > maxBetBn) throw new Error(`Max bet is $${MAX_BET_USDC}`);
-                            // requires allowance
+                            if (!isApproved) throw new Error("Approve + deposit first");
+                            if (!arenaBal || BigInt(arenaBal as any) < betAmountBn) {
+                              throw new Error("Insufficient BotsTurn balance. Deposit first.");
+                            }
                             // Side enum: 1=UP, 2=DOWN
                             await writeContractAsync({
                               abi: ARENA_ABI,
                               address: ARENA_ADDR,
-                              functionName: "placeBet",
+                              functionName: "placeBetFromBalance",
                               args: [BigInt(round.id), 1, betAmountBn],
                             });
-                            setStatus("Bet submitted (onchain)");
+                            setStatus("Bet submitted");
+                            await refetchArenaBal();
                             await refreshSelectedPick(round, selectedBot);
                             await refreshLeaderboard();
                           } catch (e: any) {
@@ -739,13 +834,18 @@ export default function GameHome() {
                             setStatus("");
                             if (betAmountBn <= 0n) throw new Error("Enter a bet amount");
                             if (betAmountBn > maxBetBn) throw new Error(`Max bet is $${MAX_BET_USDC}`);
+                            if (!isApproved) throw new Error("Approve + deposit first");
+                            if (!arenaBal || BigInt(arenaBal as any) < betAmountBn) {
+                              throw new Error("Insufficient BotsTurn balance. Deposit first.");
+                            }
                             await writeContractAsync({
                               abi: ARENA_ABI,
                               address: ARENA_ADDR,
-                              functionName: "placeBet",
+                              functionName: "placeBetFromBalance",
                               args: [BigInt(round.id), 2, betAmountBn],
                             });
-                            setStatus("Bet submitted (onchain)");
+                            setStatus("Bet submitted");
+                            await refetchArenaBal();
                             await refreshSelectedPick(round, selectedBot);
                             await refreshLeaderboard();
                           } catch (e: any) {
