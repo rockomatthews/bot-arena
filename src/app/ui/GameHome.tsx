@@ -825,6 +825,9 @@ export default function GameHome() {
             onCreate={createBot}
             disabled={!isConnected || creating}
           />
+          <Typography sx={{ opacity: 0.45, fontSize: 11, mt: 1 }}>
+            Debug: <a href="/api/diag" style={{ color: "inherit" }}>diag</a>
+          </Typography>
         </Stack>
       </Container>
     </Box>
