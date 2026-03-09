@@ -21,11 +21,13 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import CreateBotDialog from "./_CreateBotDialog";
 import { leaderboardColumns } from "./_leaderboard";
 import Grid from "@mui/material/Grid";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { useAccount, useChainId, useReadContract, useWriteContract } from "wagmi";
 import { useTheme } from "@mui/material/styles";
 import { ARENA_ABI } from "../abi/arena";
 import { USDC_ABI } from "../abi/usdc";
 import { ARENA_ADDR, BET_CHIPS, FEE_BPS, MAX_BET_USDC, USDC_BASE, parseUsdcAmount } from "./_onchain";
+import { base } from "wagmi/chains";
+import { formatUnits } from "viem";
 
 type RoundState = "BETTING" | "LOCKED" | "SETTLED";
 
@@ -70,6 +72,8 @@ type Pick = {
 
 export default function GameHome() {
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const onBase = chainId === base.id;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -98,8 +102,7 @@ export default function GameHome() {
 
   const betAmountBn = useMemo(() => parseUsdcAmount(betAmount), [betAmount]);
   const maxBetBn = useMemo(() => parseUsdcAmount(String(MAX_BET_USDC)), []);
-
-  const { data: usdcBal } = useReadContract({
+  const { data: usdcBal, refetch: refetchUsdcBal } = useReadContract({
     abi: USDC_ABI,
     address: USDC_BASE,
     functionName: "balanceOf",
@@ -107,13 +110,27 @@ export default function GameHome() {
     query: { enabled: !!address },
   });
 
-  const { data: allowance } = useReadContract({
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
     abi: USDC_ABI,
     address: USDC_BASE,
     functionName: "allowance",
     args: address && ARENA_ADDR ? [address, ARENA_ADDR] : undefined,
     query: { enabled: !!address && !!ARENA_ADDR },
   });
+
+  const isApproved = useMemo(() => {
+    if (!allowance) return false;
+    return BigInt(allowance as any) >= maxBetBn;
+  }, [allowance, maxBetBn]);
+
+  const usdcBalFmt = useMemo(() => {
+    if (!usdcBal) return "—";
+    try {
+      return Number(formatUnits(usdcBal as any, 6)).toFixed(2);
+    } catch {
+      return "—";
+    }
+  }, [usdcBal]);
   const selectedBot = useMemo(
     () => bots.find((b) => b.id === selectedBotId) || null,
     [bots, selectedBotId]
@@ -533,8 +550,17 @@ export default function GameHome() {
                     Arena Actions
                   </Typography>
                   <Typography sx={{ opacity: 0.8, mt: 1 }}>
-                    During <b>BETTING</b>, your bot can place one pick.
+                    Currency: <b>USDC on Base</b>. During <b>BETTING</b>, your bot can place one pick.
                   </Typography>
+
+                  <Alert severity={onBase ? "info" : "warning"} sx={{ mt: 2 }}>
+                    <b>Wallet USDC balance:</b> {usdcBalFmt}
+                    {!onBase ? (
+                      <>
+                        <br />Switch your wallet network to <b>Base</b> to bet.
+                      </>
+                    ) : null}
+                  </Alert>
 
                   {lastOutcome ? (
                     <Alert
@@ -609,28 +635,30 @@ export default function GameHome() {
 
                   <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
                     <Button
-                      variant="outlined"
-                      disabled={!ARENA_ADDR || !address}
+                      variant={isApproved ? "outlined" : "contained"}
+                      color={isApproved ? "success" : "primary"}
+                      disabled={!ARENA_ADDR || !address || !onBase}
                       onClick={async () => {
                         if (!ARENA_ADDR) return;
                         try {
-                          setStatus("");
+                          setStatus(isApproved ? "Already approved" : "Approving USDC…");
                           await writeContractAsync({
                             abi: USDC_ABI,
                             address: USDC_BASE,
                             functionName: "approve",
                             args: [ARENA_ADDR, maxBetBn],
                           });
+                          await refetchAllowance();
                           setStatus("USDC approved");
                         } catch (e: any) {
                           setStatus(e?.shortMessage || e?.message || "Approve failed");
                         }
                       }}
                     >
-                      Approve USDC
+                      {isApproved ? "USDC approved" : "Approve USDC"}
                     </Button>
                     <Typography sx={{ opacity: 0.7, fontSize: 12, alignSelf: "center" }}>
-                      (Required once before betting)
+                      Allowance: {isApproved ? "OK" : "not set"}
                     </Typography>
                   </Stack>
 
