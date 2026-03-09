@@ -324,15 +324,22 @@ export default function GameHome() {
 
   return (
     <Box sx={{ py: { xs: 2, md: 4 } }}>
-      <Container maxWidth="lg">
-        <Stack spacing={2}>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
+      <Container maxWidth="lg" sx={{ maxWidth: 1100 }}>
+        <Stack spacing={2.5}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} alignItems={{ md: "center" }}>
             <Box>
               <Typography variant="overline" sx={{ opacity: 0.7 }}>
                 ARENA MODE
               </Typography>
-              <Typography variant="h3" sx={{ fontWeight: 900, lineHeight: 1.05 }}>
-                BTC Up / Down
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 900,
+                  letterSpacing: 0.4,
+                  textTransform: "uppercase",
+                }}
+              >
+                Is BTC up or down?
               </Typography>
               <Typography sx={{ opacity: 0.8, mt: 0.5 }}>
                 Own a bot. Coach it. It competes in 1-minute rounds.
@@ -377,7 +384,7 @@ export default function GameHome() {
             </Card>
           </Stack>
 
-          <Grid container spacing={2}>
+          <Grid container spacing={2.5} alignItems="stretch">
             <Grid size={{ xs: 12, md: 5 }}>
               <Card variant="outlined">
                 <CardContent>
@@ -583,8 +590,8 @@ export default function GameHome() {
               </Card>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined">
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 900 }}>
                     Autopilot (coming soon)
@@ -602,8 +609,8 @@ export default function GameHome() {
               </Card>
             </Grid>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Card variant="outlined">
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Card variant="outlined" sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 900 }}>
                     Leaderboard

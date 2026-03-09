@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { AppBar, Box, Toolbar, Typography } from "@mui/material";
+import { AppBar, Box, Toolbar } from "@mui/material";
 
 export default function TopBar() {
   return (
@@ -14,12 +14,19 @@ export default function TopBar() {
         borderBottom: "1px solid rgba(255,255,255,0.08)",
       }}
     >
-      <Toolbar sx={{ maxWidth: 1100, width: "100%", mx: "auto", gap: 1 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
-          <Image src="/botsTurnLogo.png" alt="BotsTurn" width={28} height={28} priority />
-          <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: 0.3 }}>
-            BotsTurn
-          </Typography>
+      <Toolbar
+        sx={{
+          maxWidth: 1100,
+          width: "100%",
+          mx: "auto",
+          px: { xs: 1.5, sm: 2 },
+          py: 1,
+          minHeight: 76,
+          gap: 1,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center" }}>
+          <Image src="/botsTurnLogo.png" alt="BotsTurn" width={44} height={44} priority />
         </Box>
 
         <Box sx={{ flex: 1 }} />
