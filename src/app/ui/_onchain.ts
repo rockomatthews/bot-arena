@@ -1,11 +1,20 @@
-import { parseUnits } from "viem";
+import { getAddress, parseUnits } from "viem";
+
+function normalizeAddress(addr: string | undefined | null) {
+  if (!addr) return null;
+  try {
+    return getAddress(addr);
+  } catch {
+    return null;
+  }
+}
 
 export const USDC_BASE =
-  (process.env.NEXT_PUBLIC_USDC_ADDRESS_BASE as `0x${string}` | undefined) ||
+  (normalizeAddress(process.env.NEXT_PUBLIC_USDC_ADDRESS_BASE) as `0x${string}` | null) ||
   ("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const);
 
 export const ARENA_ADDR =
-  (process.env.NEXT_PUBLIC_ARENA_CONTRACT_ADDRESS as `0x${string}` | undefined) ||
+  (normalizeAddress(process.env.NEXT_PUBLIC_ARENA_CONTRACT_ADDRESS) as `0x${string}` | null) ||
   null;
 
 export const FEE_BPS = 100; // 1%
