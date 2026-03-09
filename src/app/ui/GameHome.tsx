@@ -14,10 +14,14 @@ import {
   Select,
   Stack,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
+import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import CreateBotDialog from "./_CreateBotDialog";
+import { leaderboardColumns } from "./_leaderboard";
 import Grid from "@mui/material/Grid";
 import { useAccount } from "wagmi";
+import { useTheme } from "@mui/material/styles";
 
 type RoundState = "BETTING" | "LOCKED" | "SETTLED";
 
@@ -43,18 +47,43 @@ function msUntil(iso: string) {
 
 type Bot = { id: string; name: string; avatar: string | null; created_at: string };
 
+type Balance = {
+  bot_id: string;
+  usdc: number;
+  ore_unrefined: number;
+  ore_refined: number;
+  ore_staked: number;
+  updated_at: string;
+};
+
+type Pick = {
+  id: number;
+  round_id: number;
+  bot_id: string;
+  side: "UP" | "DOWN";
+  created_at: string;
+};
+
 export default function GameHome() {
   const { address, isConnected } = useAccount();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [round, setRound] = useState<Round | null>(null);
   const [status, setStatus] = useState<string>("");
 
   const [bots, setBots] = useState<Bot[]>([]);
+  const [balances, setBalances] = useState<Record<string, Balance>>({});
   const [selectedBotId, setSelectedBotId] = useState<string>("");
+  const [pick, setPick] = useState<Pick | null>(null);
+
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const selectedBot = useMemo(
     () => bots.find((b) => b.id === selectedBotId) || null,
     [bots, selectedBotId]
   );
+
+  const selectedBalance = selectedBot ? balances[selectedBot.id] : null;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [newBotName, setNewBotName] = useState("My Bot");
@@ -87,7 +116,9 @@ export default function GameHome() {
     // Load bot list for connected wallet
     if (!isConnected || !address) {
       setBots([]);
+      setBalances({});
       setSelectedBotId("");
+      setPick(null);
       return;
     }
 
@@ -111,10 +142,27 @@ export default function GameHome() {
       if (!res.ok) throw new Error(json?.error || "Failed to load bots");
 
       if (!cancelled) {
-        setBots(json.bots || []);
+        const loadedBots: Bot[] = json.bots || [];
+        setBots(loadedBots);
+
+        // balances
+        if (loadedBots.length) {
+          const balRes = await fetch("/api/bot/balances", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ botIds: loadedBots.map((b) => b.id) }),
+          });
+          const balJson = await balRes.json();
+          if (balRes.ok) {
+            const map: Record<string, Balance> = {};
+            for (const b of balJson.balances || []) map[b.bot_id] = b;
+            setBalances(map);
+          }
+        }
+
         const saved = localStorage.getItem("botsturn:selectedBotId") || "";
-        if (saved && (json.bots || []).some((b: Bot) => b.id === saved)) setSelectedBotId(saved);
-        else if ((json.bots || []).length) setSelectedBotId((json.bots || [])[0].id);
+        if (saved && loadedBots.some((b) => b.id === saved)) setSelectedBotId(saved);
+        else if (loadedBots.length) setSelectedBotId(loadedBots[0].id);
       }
     }
 
@@ -145,6 +193,28 @@ export default function GameHome() {
   const openPx = round?.open_price ? Number(round.open_price) : null;
   const closePx = round?.close_price ? Number(round.close_price) : null;
 
+  async function refreshSelectedPick(r?: Round | null, b?: Bot | null) {
+    const rr = r ?? round;
+    const bb = b ?? selectedBot;
+    if (!rr || !bb) {
+      setPick(null);
+      return;
+    }
+    const res = await fetch("/api/pick/status", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ botId: bb.id, roundId: rr.id }),
+    });
+    const json = await res.json();
+    if (res.ok) setPick(json.pick);
+  }
+
+  async function refreshLeaderboard() {
+    const res = await fetch("/api/leaderboard", { cache: "no-store" });
+    const json = await res.json();
+    if (res.ok) setLeaderboard(json.leaderboard || []);
+  }
+
   async function createBot() {
     if (!address) return;
     setCreating(true);
@@ -168,14 +238,35 @@ export default function GameHome() {
       if (!list.ok) throw new Error(listJson?.error || "List failed");
       setBots(listJson.bots || []);
       setSelectedBotId(json.bot.id);
+      // refresh balances
+      const balRes = await fetch("/api/bot/balances", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ botIds: (listJson.bots || []).map((b: Bot) => b.id) }),
+      });
+      const balJson = await balRes.json();
+      if (balRes.ok) {
+        const map: Record<string, Balance> = {};
+        for (const b of balJson.balances || []) map[b.bot_id] = b;
+        setBalances(map);
+      }
+
       setCreateOpen(false);
       setStatus("Bot created");
+      refreshLeaderboard();
     } catch (e: any) {
       setStatus(e?.message || "Error");
     } finally {
       setCreating(false);
     }
   }
+
+  useEffect(() => {
+    // whenever round or selected bot changes, refresh pick status + leaderboard
+    refreshSelectedPick().catch(() => {});
+    refreshLeaderboard().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [round?.id, selectedBotId]);
 
   return (
     <Box sx={{ py: { xs: 2, md: 4 } }}>
@@ -276,9 +367,21 @@ export default function GameHome() {
                   </Stack>
 
                   {selectedBot ? (
-                    <Typography sx={{ opacity: 0.8, mt: 2, fontSize: 13 }}>
+                    <Typography sx={{ opacity: 0.85, mt: 2, fontSize: 13, lineHeight: 1.6 }}>
                       Selected: <b>{selectedBot.name}</b>
+                      <br />Bankroll: <b>{selectedBalance ? Number(selectedBalance.usdc).toFixed(2) : "—"}</b> (simulated USDC)
+                      <br />Ore: <b>
+                        {selectedBalance
+                          ? Number(selectedBalance.ore_unrefined || 0) + Number(selectedBalance.ore_refined || 0)
+                          : "—"}
+                      </b>
                     </Typography>
+                  ) : null}
+
+                  {pick ? (
+                    <Alert severity="success" sx={{ mt: 2 }}>
+                      This round: your bot picked <b>{pick.side}</b>.
+                    </Alert>
                   ) : null}
 
                   <Typography sx={{ opacity: 0.7, mt: 2, fontSize: 13 }}>
@@ -295,7 +398,7 @@ export default function GameHome() {
                     Arena Actions
                   </Typography>
                   <Typography sx={{ opacity: 0.8, mt: 1 }}>
-                    During <b>BETTING</b>, your bot can place one pick (1 USDC simulated for now).
+                    During <b>BETTING</b>, your bot can place one pick. Stake is fixed at <b>1</b> (simulated USDC) for now.
                   </Typography>
 
                   <Grid container spacing={1.5} sx={{ mt: 1 }}>
@@ -304,9 +407,9 @@ export default function GameHome() {
                         fullWidth
                         size="large"
                         variant="contained"
-                        disabled={!round || round.state !== "BETTING" || !selectedBot}
+                        disabled={!round || round.state !== "BETTING" || !selectedBot || !!pick}
                         onClick={async () => {
-                          if (!round || !selectedBot) return;
+                          if (!round || !selectedBot || pick) return;
                           const res = await fetch("/api/pick", {
                             method: "POST",
                             headers: { "content-type": "application/json" },
@@ -314,7 +417,11 @@ export default function GameHome() {
                           });
                           const json = await res.json();
                           if (!res.ok) setStatus(json?.error || "Pick failed");
-                          else setStatus("Pick submitted");
+                          else {
+                            setStatus("Pick submitted");
+                            await refreshSelectedPick(round, selectedBot);
+                            await refreshLeaderboard();
+                          }
                         }}
                         sx={{ fontWeight: 900, py: 1.6 }}
                       >
@@ -326,9 +433,9 @@ export default function GameHome() {
                         fullWidth
                         size="large"
                         variant="contained"
-                        disabled={!round || round.state !== "BETTING" || !selectedBot}
+                        disabled={!round || round.state !== "BETTING" || !selectedBot || !!pick}
                         onClick={async () => {
-                          if (!round || !selectedBot) return;
+                          if (!round || !selectedBot || pick) return;
                           const res = await fetch("/api/pick", {
                             method: "POST",
                             headers: { "content-type": "application/json" },
@@ -336,7 +443,11 @@ export default function GameHome() {
                           });
                           const json = await res.json();
                           if (!res.ok) setStatus(json?.error || "Pick failed");
-                          else setStatus("Pick submitted");
+                          else {
+                            setStatus("Pick submitted");
+                            await refreshSelectedPick(round, selectedBot);
+                            await refreshLeaderboard();
+                          }
                         }}
                         sx={{ fontWeight: 900, py: 1.6 }}
                       >
@@ -346,7 +457,7 @@ export default function GameHome() {
                   </Grid>
 
                   <Typography sx={{ opacity: 0.7, mt: 2, fontSize: 13 }}>
-                    We only turn on real USDC when you approve. Nothing spends money silently.
+                    Real USDC comes later (opt-in). Right now this is a simulated bankroll so we can ship safely.
                   </Typography>
                 </CardContent>
               </Card>
@@ -375,13 +486,42 @@ export default function GameHome() {
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 900 }}>
-                    Mining + Staking (coming next)
+                    Leaderboard
                   </Typography>
-                  <Typography sx={{ opacity: 0.85, mt: 1, lineHeight: 1.6 }}>
-                    • Mine <b>Ore</b> by playing rounds (wins mine more)
-                    <br />• Refine Ore over time (instant claim = penalty)
-                    <br />• Stake Ore to unlock higher tiers + cosmetics
+                  <Typography sx={{ opacity: 0.75, mt: 0.5, fontSize: 13 }}>
+                    Top bots by bankroll (simulated).
                   </Typography>
+
+                  <Box sx={{ mt: 1.5 }}>
+                    {isMobile ? (
+                      <Stack spacing={1}>
+                        {leaderboard.slice(0, 10).map((r) => (
+                          <Card key={r.id} variant="outlined" sx={{ bgcolor: "rgba(255,255,255,0.03)" }}>
+                            <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+                              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                <Typography sx={{ fontWeight: 900 }}>{r.name}</Typography>
+                                <Typography sx={{ fontWeight: 900 }}>{Number(r.usdc).toFixed(2)}</Typography>
+                              </Stack>
+                              <Typography sx={{ opacity: 0.75, fontSize: 12, mt: 0.5 }}>
+                                Ore {r.ore} · Picks {r.picks} · Wins {r.wins}
+                              </Typography>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </Stack>
+                    ) : (
+                      <div style={{ height: 360, width: "100%" }}>
+                        <DataGrid
+                          rows={leaderboard}
+                          columns={leaderboardColumns as GridColDef[]}
+                          disableRowSelectionOnClick
+                          pageSizeOptions={[10, 25, 50]}
+                          initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
+                          density="compact"
+                        />
+                      </div>
+                    )}
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
