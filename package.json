@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "arena:compile": "node scripts/compile_arena.mjs",
-    "arena:deploy:base": "node scripts/deploy_arena_base.mjs"
+    "arena:deploy:base": "node scripts/deploy_arena_base.mjs",
+    "arena:deploy:base:deposit": "node scripts/deploy_arena_deposit_base.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

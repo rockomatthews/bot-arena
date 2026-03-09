@@ -23,7 +23,7 @@ import { leaderboardColumns } from "./_leaderboard";
 import Grid from "@mui/material/Grid";
 import { useAccount, useChainId, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { useTheme } from "@mui/material/styles";
-import { ARENA_ABI } from "../abi/arena";
+import { ABI as ARENA_ABI } from "../abi/arena";
 import { USDC_ABI } from "../abi/usdc";
 import { ARENA_ADDR, BET_CHIPS, FEE_BPS, MAX_BET_USDC, USDC_BASE, parseUsdcAmount } from "./_onchain";
 import { base } from "wagmi/chains";
