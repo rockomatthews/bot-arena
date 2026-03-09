@@ -82,10 +82,18 @@ async function tick() {
   }
 
   // If the round is settled, ensure payouts are applied exactly once.
+  // Never hard-fail the tick endpoint for a payout issue; return diagnostics so the UI keeps working.
   if (round.state === "SETTLED") {
     const settle = await sb.rpc("settle_round", { p_round_id: round.id });
     if (settle.error) {
-      return NextResponse.json({ error: settle.error.message }, { status: 500 });
+      return NextResponse.json(
+        {
+          ok: true,
+          round,
+          settleError: settle.error.message,
+        },
+        { status: 200 }
+      );
     }
     return NextResponse.json({ ok: true, round, settle: settle.data });
   }
