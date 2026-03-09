@@ -367,15 +367,59 @@ export default function GameHome() {
                   </Stack>
 
                   {selectedBot ? (
-                    <Typography sx={{ opacity: 0.85, mt: 2, fontSize: 13, lineHeight: 1.6 }}>
-                      Selected: <b>{selectedBot.name}</b>
-                      <br />Bankroll: <b>{selectedBalance ? Number(selectedBalance.usdc).toFixed(2) : "—"}</b> (simulated USDC)
-                      <br />Ore: <b>
-                        {selectedBalance
-                          ? Number(selectedBalance.ore_unrefined || 0) + Number(selectedBalance.ore_refined || 0)
-                          : "—"}
-                      </b>
-                    </Typography>
+                    <>
+                      <Typography sx={{ opacity: 0.85, mt: 2, fontSize: 13, lineHeight: 1.6 }}>
+                        Selected: <b>{selectedBot.name}</b>
+                        <br />Bankroll: <b>{selectedBalance ? Number(selectedBalance.usdc).toFixed(2) : "—"}</b> (simulated USDC)
+                        <br />Ore:{" "}
+                        <b>
+                          {selectedBalance
+                            ? Number(selectedBalance.ore_unrefined || 0) + Number(selectedBalance.ore_refined || 0)
+                            : "—"}
+                        </b>
+                      </Typography>
+
+                      {selectedBalance && Number(selectedBalance.usdc) < 1 ? (
+                        <Alert
+                          severity="warning"
+                          sx={{ mt: 2 }}
+                          action={
+                            <Button
+                              color="inherit"
+                              size="small"
+                              onClick={async () => {
+                                const res = await fetch("/api/bot/faucet", {
+                                  method: "POST",
+                                  headers: { "content-type": "application/json" },
+                                  body: JSON.stringify({ botId: selectedBot.id, amount: 100 }),
+                                });
+                                const json = await res.json();
+                                if (!res.ok) setStatus(json?.error || "Faucet failed");
+                                else {
+                                  setStatus("Bankroll topped up");
+                                  // reload balances
+                                  const balRes = await fetch("/api/bot/balances", {
+                                    method: "POST",
+                                    headers: { "content-type": "application/json" },
+                                    body: JSON.stringify({ botIds: bots.map((b) => b.id) }),
+                                  });
+                                  const balJson = await balRes.json();
+                                  if (balRes.ok) {
+                                    const map: Record<string, Balance> = {};
+                                    for (const b of balJson.balances || []) map[b.bot_id] = b;
+                                    setBalances(map);
+                                  }
+                                }
+                              }}
+                            >
+                              Faucet 100
+                            </Button>
+                          }
+                        >
+                          Insufficient bankroll to play.
+                        </Alert>
+                      ) : null}
+                    </>
                   ) : null}
 
                   {pick ? (
@@ -416,12 +460,13 @@ export default function GameHome() {
                             body: JSON.stringify({ botId: selectedBot.id, roundId: round.id, side: "UP" }),
                           });
                           const json = await res.json();
-                          if (!res.ok) setStatus(json?.error || "Pick failed");
-                          else {
-                            setStatus("Pick submitted");
-                            await refreshSelectedPick(round, selectedBot);
-                            await refreshLeaderboard();
+                          if (!res.ok) {
+                            setStatus(json?.error || "Pick failed");
+                            return;
                           }
+                          setStatus("Pick submitted");
+                          await refreshSelectedPick(round, selectedBot);
+                          await refreshLeaderboard();
                         }}
                         sx={{ fontWeight: 900, py: 1.6 }}
                       >
@@ -442,12 +487,13 @@ export default function GameHome() {
                             body: JSON.stringify({ botId: selectedBot.id, roundId: round.id, side: "DOWN" }),
                           });
                           const json = await res.json();
-                          if (!res.ok) setStatus(json?.error || "Pick failed");
-                          else {
-                            setStatus("Pick submitted");
-                            await refreshSelectedPick(round, selectedBot);
-                            await refreshLeaderboard();
+                          if (!res.ok) {
+                            setStatus(json?.error || "Pick failed");
+                            return;
                           }
+                          setStatus("Pick submitted");
+                          await refreshSelectedPick(round, selectedBot);
+                          await refreshLeaderboard();
                         }}
                         sx={{ fontWeight: 900, py: 1.6 }}
                       >
