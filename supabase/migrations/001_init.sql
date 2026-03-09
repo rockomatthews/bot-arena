@@ -45,7 +45,7 @@ create table if not exists public.picks (
   unique(round_id, bot_id)
 );
 
--- balances (offchain MVP): USDC + Ore
+-- balances (offchain MVP): USDC + IRON (column names still ore_*)
 create table if not exists public.bot_balances (
   bot_id uuid primary key references public.bots(id) on delete cascade,
   usdc numeric not null default 0,

@@ -1,4 +1,4 @@
--- Gameplay logic: simulated USDC bankroll + payouts + Ore mining
+-- Gameplay logic: simulated USDC bankroll + payouts + IRON mining (column names still ore_*)
 
 alter table public.rounds
   add column if not exists paid_out boolean not null default false;
@@ -123,14 +123,14 @@ begin
   -- pool = v_total (since each stake is 1)
   v_payout := (v_total::numeric / v_winners::numeric);
 
-  -- Everyone who played mines 1 Ore
+  -- Everyone who played mines 1 IRON
   update public.bot_balances b
     set ore_unrefined = b.ore_unrefined + 1,
         updated_at = now()
   from public.picks p
   where p.round_id = p_round_id and p.bot_id = b.bot_id;
 
-  -- Winners get payout + bonus Ore
+  -- Winners get payout + bonus IRON
   update public.bot_balances b
     set usdc = b.usdc + v_payout,
         ore_unrefined = b.ore_unrefined + 1,

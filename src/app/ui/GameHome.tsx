@@ -16,6 +16,7 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
+import Image from "next/image";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import CreateBotDialog from "./_CreateBotDialog";
 import { leaderboardColumns } from "./_leaderboard";
@@ -371,7 +372,11 @@ export default function GameHome() {
                       <Typography sx={{ opacity: 0.85, mt: 2, fontSize: 13, lineHeight: 1.6 }}>
                         Selected: <b>{selectedBot.name}</b>
                         <br />Bankroll: <b>{selectedBalance ? Number(selectedBalance.usdc).toFixed(2) : "—"}</b> (simulated USDC)
-                        <br />Ore:{" "}
+                        <br />
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                          <Image src="/ironCoinLogo.png" alt="IRON" width={16} height={16} />
+                          <span>IRON:</span>
+                        </span>{" "}
                         <b>
                           {selectedBalance
                             ? Number(selectedBalance.ore_unrefined || 0) + Number(selectedBalance.ore_refined || 0)
@@ -549,7 +554,7 @@ export default function GameHome() {
                                 <Typography sx={{ fontWeight: 900 }}>{Number(r.usdc).toFixed(2)}</Typography>
                               </Stack>
                               <Typography sx={{ opacity: 0.75, fontSize: 12, mt: 0.5 }}>
-                                Ore {r.ore} · Picks {r.picks} · Wins {r.wins}
+                                IRON {r.ore} · Picks {r.picks} · Wins {r.wins}
                               </Typography>
                             </CardContent>
                           </Card>
