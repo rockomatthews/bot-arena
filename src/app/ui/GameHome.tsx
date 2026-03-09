@@ -25,7 +25,7 @@ import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { useTheme } from "@mui/material/styles";
 import { ARENA_ABI } from "../abi/arena";
 import { USDC_ABI } from "../abi/usdc";
-import { ARENA_ADDR, FEE_BPS, MAX_BET_USDC, USDC_BASE, parseUsdcAmount } from "./_onchain";
+import { ARENA_ADDR, BET_CHIPS, FEE_BPS, MAX_BET_USDC, USDC_BASE, parseUsdcAmount } from "./_onchain";
 
 type RoundState = "BETTING" | "LOCKED" | "SETTLED";
 
@@ -93,7 +93,7 @@ export default function GameHome() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   // Onchain betting UI state
-  const [betAmount, setBetAmount] = useState("1");
+  const [betAmount, setBetAmount] = useState("0");
   const { writeContractAsync } = useWriteContract();
 
   const betAmountBn = useMemo(() => parseUsdcAmount(betAmount), [betAmount]);
@@ -552,40 +552,55 @@ export default function GameHome() {
                     </Alert>
                   ) : null}
 
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
-                    <Button
-                      variant="outlined"
-                      onClick={() => setBetAmount("1")}
-                      sx={{ minWidth: 72 }}
-                    >
-                      1
-                    </Button>
-                    <Button variant="outlined" onClick={() => setBetAmount("5")} sx={{ minWidth: 72 }}>
-                      5
-                    </Button>
-                    <Button variant="outlined" onClick={() => setBetAmount("10")} sx={{ minWidth: 72 }}>
-                      10
-                    </Button>
-                    <Button variant="outlined" onClick={() => setBetAmount("25")} sx={{ minWidth: 72 }}>
-                      25
-                    </Button>
-                    <Box sx={{ flex: 1 }} />
-                    <Box sx={{ minWidth: { xs: "100%", sm: 180 } }}>
-                      <Typography sx={{ opacity: 0.7, fontSize: 12, mb: 0.5 }}>Bet amount (USDC)</Typography>
+                  <Stack spacing={1} sx={{ mt: 2 }}>
+                    <Box>
+                      <Typography sx={{ opacity: 0.7, fontSize: 12, mb: 0.5 }}>
+                        Bet total (USDC)
+                      </Typography>
                       <input
+                        inputMode="decimal"
                         value={betAmount}
                         onChange={(e) => setBetAmount(e.target.value.replace(/[^0-9.]/g, ""))}
                         style={{
                           width: "100%",
-                          padding: "10px 12px",
+                          padding: "12px 12px",
                           borderRadius: 12,
                           border: "1px solid rgba(255,255,255,0.18)",
                           background: "rgba(0,0,0,0.25)",
                           color: "white",
-                          fontSize: 14,
+                          fontSize: 18,
+                          fontWeight: 900,
                         }}
                       />
                     </Box>
+
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {BET_CHIPS.map((amt) => (
+                        <Button
+                          key={amt}
+                          variant="outlined"
+                          onClick={() => {
+                            const cur = Number(betAmount || "0");
+                            const next = cur + amt;
+                            if (next > MAX_BET_USDC) {
+                              setBetAmount(String(MAX_BET_USDC));
+                            } else {
+                              setBetAmount(String(next));
+                            }
+                          }}
+                          sx={{ minWidth: 72, fontWeight: 900 }}
+                        >
+                          +${amt}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="text"
+                        onClick={() => setBetAmount("0")}
+                        sx={{ fontWeight: 900, opacity: 0.8 }}
+                      >
+                        Clear
+                      </Button>
+                    </Stack>
                   </Stack>
 
                   <Typography sx={{ opacity: 0.75, mt: 1, fontSize: 13, lineHeight: 1.7 }}>
