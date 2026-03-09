@@ -352,7 +352,26 @@ export default function GameHome() {
               </Card>
             </Grid>
 
-            <Grid size={{ xs: 12 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                    Autopilot (coming soon)
+                  </Typography>
+                  <Typography sx={{ opacity: 0.85, mt: 1, lineHeight: 1.6 }}>
+                    Soon you’ll be able to automate your bot with:
+                    <br />• <b>Your own scripts</b>
+                    <br />• <b>Purchased strategies</b> (marketplace)
+                    <br />• <b>Risk caps</b> + explicit approvals (no silent spending)
+                  </Typography>
+                  <Typography sx={{ opacity: 0.7, mt: 1, fontSize: 13 }}>
+                    For now: manual coaching + stats. Then we unlock automation.
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
               <Card variant="outlined">
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 900 }}>

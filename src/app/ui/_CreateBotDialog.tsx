@@ -27,11 +27,13 @@ export default function CreateBotDialog({
 }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Create a bot</DialogTitle>
+      <DialogTitle>Name your bot</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
             label="Bot name"
+            placeholder="e.g. SatoshiSniper"
+            helperText="Pick something memorable. You can change this later."
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
