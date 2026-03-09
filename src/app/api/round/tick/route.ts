@@ -81,6 +81,15 @@ async function tick() {
     round = up.data;
   }
 
+  // If the round is settled, ensure payouts are applied exactly once.
+  if (round.state === "SETTLED") {
+    const settle = await sb.rpc("settle_round", { p_round_id: round.id });
+    if (settle.error) {
+      return NextResponse.json({ error: settle.error.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, round, settle: settle.data });
+  }
+
   return NextResponse.json({ ok: true, round });
 }
 

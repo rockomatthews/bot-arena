@@ -36,11 +36,11 @@ export async function POST(req: NextRequest) {
 
   if (bot.error) return NextResponse.json({ error: bot.error.message }, { status: 500 });
 
-  // Ensure balance row
+  // Ensure balance row + seed simulated bankroll
   const bal = await sb
     .from("bot_balances")
-    .upsert({ bot_id: bot.data.id }, { onConflict: "bot_id" })
-    .select("bot_id")
+    .upsert({ bot_id: bot.data.id, usdc: 100 }, { onConflict: "bot_id" })
+    .select("bot_id,usdc")
     .single();
   if (bal.error) return NextResponse.json({ error: bal.error.message }, { status: 500 });
 

@@ -17,18 +17,17 @@ export async function POST(req: NextRequest) {
 
   const sb = supabaseServerAdmin();
 
-  // Create pick (unique constraint prevents double picks)
-  const ins = await sb
-    .from("picks")
-    .insert({ round_id: parsed.data.roundId, bot_id: parsed.data.botId, side: parsed.data.side })
-    .select("id,round_id,bot_id,side,created_at")
-    .single();
+  const rpc = await sb.rpc("place_pick", {
+    p_bot_id: parsed.data.botId,
+    p_round_id: parsed.data.roundId,
+    p_side: parsed.data.side,
+  });
 
-  if (ins.error) {
-    // handle duplicate
-    const msg = ins.error.message || "Pick failed";
-    return NextResponse.json({ error: msg }, { status: 400 });
+  if (rpc.error) {
+    return NextResponse.json({ error: rpc.error.message || "Pick failed" }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, pick: ins.data });
+  // RPC returns an array of rows
+  const pick = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+  return NextResponse.json({ ok: true, pick });
 }
