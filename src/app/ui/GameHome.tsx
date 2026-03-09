@@ -21,8 +21,11 @@ import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import CreateBotDialog from "./_CreateBotDialog";
 import { leaderboardColumns } from "./_leaderboard";
 import Grid from "@mui/material/Grid";
-import { useAccount } from "wagmi";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { useTheme } from "@mui/material/styles";
+import { ARENA_ABI } from "../abi/arena";
+import { USDC_ABI } from "../abi/usdc";
+import { ARENA_ADDR, FEE_BPS, MAX_BET_USDC, USDC_BASE, parseUsdcAmount } from "./_onchain";
 
 type RoundState = "BETTING" | "LOCKED" | "SETTLED";
 
@@ -88,6 +91,29 @@ export default function GameHome() {
   >(null);
 
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+
+  // Onchain betting UI state
+  const [betAmount, setBetAmount] = useState("1");
+  const { writeContractAsync } = useWriteContract();
+
+  const betAmountBn = useMemo(() => parseUsdcAmount(betAmount), [betAmount]);
+  const maxBetBn = useMemo(() => parseUsdcAmount(String(MAX_BET_USDC)), []);
+
+  const { data: usdcBal } = useReadContract({
+    abi: USDC_ABI,
+    address: USDC_BASE,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  });
+
+  const { data: allowance } = useReadContract({
+    abi: USDC_ABI,
+    address: USDC_BASE,
+    functionName: "allowance",
+    args: address && ARENA_ADDR ? [address, ARENA_ADDR] : undefined,
+    query: { enabled: !!address && !!ARENA_ADDR },
+  });
   const selectedBot = useMemo(
     () => bots.find((b) => b.id === selectedBotId) || null,
     [bots, selectedBotId]
@@ -507,7 +533,7 @@ export default function GameHome() {
                     Arena Actions
                   </Typography>
                   <Typography sx={{ opacity: 0.8, mt: 1 }}>
-                    During <b>BETTING</b>, your bot can place one pick. Stake is fixed at <b>1</b> (simulated USDC) for now.
+                    During <b>BETTING</b>, your bot can place one pick.
                   </Typography>
 
                   {lastOutcome ? (
@@ -526,7 +552,74 @@ export default function GameHome() {
                     </Alert>
                   ) : null}
 
-                  <Grid container spacing={1.5} sx={{ mt: 1 }}>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setBetAmount("1")}
+                      sx={{ minWidth: 72 }}
+                    >
+                      1
+                    </Button>
+                    <Button variant="outlined" onClick={() => setBetAmount("5")} sx={{ minWidth: 72 }}>
+                      5
+                    </Button>
+                    <Button variant="outlined" onClick={() => setBetAmount("10")} sx={{ minWidth: 72 }}>
+                      10
+                    </Button>
+                    <Button variant="outlined" onClick={() => setBetAmount("25")} sx={{ minWidth: 72 }}>
+                      25
+                    </Button>
+                    <Box sx={{ flex: 1 }} />
+                    <Box sx={{ minWidth: { xs: "100%", sm: 180 } }}>
+                      <Typography sx={{ opacity: 0.7, fontSize: 12, mb: 0.5 }}>Bet amount (USDC)</Typography>
+                      <input
+                        value={betAmount}
+                        onChange={(e) => setBetAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                        style={{
+                          width: "100%",
+                          padding: "10px 12px",
+                          borderRadius: 12,
+                          border: "1px solid rgba(255,255,255,0.18)",
+                          background: "rgba(0,0,0,0.25)",
+                          color: "white",
+                          fontSize: 14,
+                        }}
+                      />
+                    </Box>
+                  </Stack>
+
+                  <Typography sx={{ opacity: 0.75, mt: 1, fontSize: 13, lineHeight: 1.7 }}>
+                    Fee: <b>{(FEE_BPS / 100).toFixed(2)}%</b> per bet · Max: <b>${MAX_BET_USDC}</b> per round
+                  </Typography>
+
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mt: 2 }}>
+                    <Button
+                      variant="outlined"
+                      disabled={!ARENA_ADDR || !address}
+                      onClick={async () => {
+                        if (!ARENA_ADDR) return;
+                        try {
+                          setStatus("");
+                          await writeContractAsync({
+                            abi: USDC_ABI,
+                            address: USDC_BASE,
+                            functionName: "approve",
+                            args: [ARENA_ADDR, maxBetBn],
+                          });
+                          setStatus("USDC approved");
+                        } catch (e: any) {
+                          setStatus(e?.shortMessage || e?.message || "Approve failed");
+                        }
+                      }}
+                    >
+                      Approve USDC
+                    </Button>
+                    <Typography sx={{ opacity: 0.7, fontSize: 12, alignSelf: "center" }}>
+                      (Required once before betting)
+                    </Typography>
+                  </Stack>
+
+                  <Grid container spacing={1.5} sx={{ mt: 2 }}>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <Button
                         fullWidth
@@ -535,19 +628,28 @@ export default function GameHome() {
                         disabled={!round || round.state !== "BETTING" || !selectedBot || !!pick}
                         onClick={async () => {
                           if (!round || !selectedBot || pick) return;
-                          const res = await fetch("/api/pick", {
-                            method: "POST",
-                            headers: { "content-type": "application/json" },
-                            body: JSON.stringify({ botId: selectedBot.id, roundId: round.id, side: "UP" }),
-                          });
-                          const json = await res.json();
-                          if (!res.ok) {
-                            setStatus(json?.error || "Pick failed");
+                          if (!round || !ARENA_ADDR || !address) {
+                            setStatus("Connect wallet to bet");
                             return;
                           }
-                          setStatus("Pick submitted");
-                          await refreshSelectedPick(round, selectedBot);
-                          await refreshLeaderboard();
+                          try {
+                            setStatus("");
+                            if (betAmountBn <= 0n) throw new Error("Enter a bet amount");
+                            if (betAmountBn > maxBetBn) throw new Error(`Max bet is $${MAX_BET_USDC}`);
+                            // requires allowance
+                            // Side enum: 1=UP, 2=DOWN
+                            await writeContractAsync({
+                              abi: ARENA_ABI,
+                              address: ARENA_ADDR,
+                              functionName: "placeBet",
+                              args: [BigInt(round.id), 1, betAmountBn],
+                            });
+                            setStatus("Bet submitted (onchain)");
+                            await refreshSelectedPick(round, selectedBot);
+                            await refreshLeaderboard();
+                          } catch (e: any) {
+                            setStatus(e?.shortMessage || e?.message || "Bet failed");
+                          }
                         }}
                         sx={{ fontWeight: 900, py: 1.6 }}
                       >
@@ -562,19 +664,26 @@ export default function GameHome() {
                         disabled={!round || round.state !== "BETTING" || !selectedBot || !!pick}
                         onClick={async () => {
                           if (!round || !selectedBot || pick) return;
-                          const res = await fetch("/api/pick", {
-                            method: "POST",
-                            headers: { "content-type": "application/json" },
-                            body: JSON.stringify({ botId: selectedBot.id, roundId: round.id, side: "DOWN" }),
-                          });
-                          const json = await res.json();
-                          if (!res.ok) {
-                            setStatus(json?.error || "Pick failed");
+                          if (!round || !ARENA_ADDR || !address) {
+                            setStatus("Connect wallet to bet");
                             return;
                           }
-                          setStatus("Pick submitted");
-                          await refreshSelectedPick(round, selectedBot);
-                          await refreshLeaderboard();
+                          try {
+                            setStatus("");
+                            if (betAmountBn <= 0n) throw new Error("Enter a bet amount");
+                            if (betAmountBn > maxBetBn) throw new Error(`Max bet is $${MAX_BET_USDC}`);
+                            await writeContractAsync({
+                              abi: ARENA_ABI,
+                              address: ARENA_ADDR,
+                              functionName: "placeBet",
+                              args: [BigInt(round.id), 2, betAmountBn],
+                            });
+                            setStatus("Bet submitted (onchain)");
+                            await refreshSelectedPick(round, selectedBot);
+                            await refreshLeaderboard();
+                          } catch (e: any) {
+                            setStatus(e?.shortMessage || e?.message || "Bet failed");
+                          }
                         }}
                         sx={{ fontWeight: 900, py: 1.6 }}
                       >
