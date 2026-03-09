@@ -1,7 +1,7 @@
 import { createPublicClient, createWalletClient, http, parseUnits } from 'viem';
 import { base } from 'viem/chains';
 import { privateKeyToAccount } from 'viem/accounts';
-import { ARENA_ABI, ARENA_BYTECODE } from '../src/app/abi/arena.js';
+import { ARENA_ABI, ARENA_BYTECODE } from '../src/app/abi/arena.ts';
 
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
